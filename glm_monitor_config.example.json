@@ -1,0 +1,25 @@
+{
+  "refresh_interval": 30,
+  "plan_type": "Max",
+  "api_key": "YOUR_API_KEY_HERE",
+  "models": [
+    "GLM"
+  ],
+  "plan_quotas": {
+    "Lite": {
+      "hourly": 1200,
+      "weekly": 25000,
+      "monthly": 100000
+    },
+    "Pro": {
+      "hourly": 6000,
+      "weekly": 125000,
+      "monthly": 500000
+    },
+    "Max": {
+      "hourly": 20000,
+      "weekly": 420000,
+      "monthly": 2000000
+    }
+  }
+}
