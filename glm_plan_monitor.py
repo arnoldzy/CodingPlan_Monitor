@@ -334,6 +334,16 @@ class GLMPlanMonitor:
         self.compact_btn.bind('<Enter>', lambda e: self.compact_btn.config(fg=THEME['accent']))
         self.compact_btn.bind('<Leave>', lambda e: self.compact_btn.config(fg=THEME['text_secondary']))
 
+        # 刷新按钮
+        refresh_btn = tk.Label(right_frame, text="↻",
+                               font=("Arial", 12),
+                               fg=THEME['text_secondary'], bg=THEME['bg_dark'],
+                               cursor='hand2')
+        refresh_btn.pack(side=tk.LEFT, padx=2)
+        refresh_btn.bind('<Button-1>', lambda e: self.fetch_data())
+        refresh_btn.bind('<Enter>', lambda e: refresh_btn.config(fg=THEME['accent']))
+        refresh_btn.bind('<Leave>', lambda e: refresh_btn.config(fg=THEME['text_secondary']))
+
         settings_btn = tk.Label(right_frame, text="⚙",
                                font=("Arial", 12),
                                fg=THEME['text_secondary'], bg=THEME['bg_dark'],
@@ -862,6 +872,15 @@ class GLMPlanMonitor:
         except (ValueError, OSError):
             return ""
 
+    def get_usage_color(self, percentage):
+        """根据使用率返回颜色"""
+        if percentage >= 80:
+            return '#e94560'  # 红色 - 高使用率
+        elif percentage >= 50:
+            return '#ffd700'  # 黄色 - 中等使用率
+        else:
+            return '#4ecca3'  # 绿色 - 低使用率
+
     def update_ui(self):
         """更新UI显示"""
         try:
@@ -881,25 +900,34 @@ class GLMPlanMonitor:
 
             # 每小时配额
             h_pct = d.get('hourly_percentage', 0)
-            self.hourly_label.config(text=f"{h_pct}%")
+            h_color = self.get_usage_color(h_pct)
+            self.hourly_label.config(text=f"{h_pct}%", fg=h_color)
             self.hourly_bar['value'] = h_pct
             self.hourly_reset.config(text=self.format_reset_time(d.get('hourly_reset', 0)))
 
             # 周配额
             w_pct = d.get('weekly_percentage', 0)
-            self.weekly_label.config(text=f"{w_pct}%")
+            w_color = self.get_usage_color(w_pct)
+            self.weekly_label.config(text=f"{w_pct}%", fg=w_color)
             self.weekly_bar['value'] = w_pct
             self.weekly_reset.config(text=self.format_reset_time(d.get('weekly_reset', 0)))
 
             # 月度MCP配额
             m_used = d.get('monthly_mcp_used', 0)
             m_total = d.get('monthly_mcp_total', 0)
-            self.monthly_mcp_label.config(text=f"{m_used}/{m_total}")
+            m_pct = (m_used / m_total * 100) if m_total > 0 else 0
+            m_color = self.get_usage_color(m_pct)
+            self.monthly_mcp_label.config(text=f"{m_used}/{m_total}", fg=m_color)
             if m_total > 0:
-                self.monthly_mcp_bar['value'] = (m_used / m_total) * 100
+                self.monthly_mcp_bar['value'] = m_pct
             else:
                 self.monthly_mcp_bar['value'] = 0
             self.monthly_mcp_reset.config(text=self.format_reset_time(d.get('monthly_mcp_reset', 0)))
+
+            # 小窗口模式下更新配额显示
+            if self.compact_mode:
+                self.hourly_brief_label.config(text=f"5h: {h_pct}%", fg=h_color)
+                self.weekly_brief_label.config(text=f"周: {w_pct}%", fg=w_color)
 
             # MCP使用分布
             self.update_mcp_rows(d.get('usage_details', []))
