@@ -334,16 +334,6 @@ class GLMPlanMonitor:
         self.compact_btn.bind('<Enter>', lambda e: self.compact_btn.config(fg=THEME['accent']))
         self.compact_btn.bind('<Leave>', lambda e: self.compact_btn.config(fg=THEME['text_secondary']))
 
-        # 刷新按钮
-        refresh_btn = tk.Label(right_frame, text="↻",
-                               font=("Arial", 12),
-                               fg=THEME['text_secondary'], bg=THEME['bg_dark'],
-                               cursor='hand2')
-        refresh_btn.pack(side=tk.LEFT, padx=2)
-        refresh_btn.bind('<Button-1>', lambda e: self.fetch_data())
-        refresh_btn.bind('<Enter>', lambda e: refresh_btn.config(fg=THEME['accent']))
-        refresh_btn.bind('<Leave>', lambda e: refresh_btn.config(fg=THEME['text_secondary']))
-
         settings_btn = tk.Label(right_frame, text="⚙",
                                font=("Arial", 12),
                                fg=THEME['text_secondary'], bg=THEME['bg_dark'],
@@ -365,15 +355,29 @@ class GLMPlanMonitor:
         self.status_frame = tk.Frame(self.main_frame, bg=THEME['bg_dark'])
         self.status_frame.pack(fill=tk.X, pady=(0, 8))
 
-        self.status_dot = tk.Label(self.status_frame, text="●",
+        # 左侧：状态点和状态文字
+        left_status = tk.Frame(self.status_frame, bg=THEME['bg_dark'])
+        left_status.pack(side=tk.LEFT)
+
+        self.status_dot = tk.Label(left_status, text="●",
                                    font=("Arial", 8),
                                    fg=THEME['accent'], bg=THEME['bg_dark'])
         self.status_dot.pack(side=tk.LEFT)
 
-        self.status_label = tk.Label(self.status_frame, text=" 连接中...",
+        self.status_label = tk.Label(left_status, text=" 连接中...",
                                      font=("Microsoft YaHei UI", 9),
                                      fg=THEME['text_secondary'], bg=THEME['bg_dark'])
         self.status_label.pack(side=tk.LEFT)
+
+        # 右侧：刷新按钮
+        refresh_btn = tk.Label(self.status_frame, text="↻",
+                               font=("Arial", 12),
+                               fg=THEME['text_secondary'], bg=THEME['bg_dark'],
+                               cursor='hand2')
+        refresh_btn.pack(side=tk.RIGHT)
+        refresh_btn.bind('<Button-1>', lambda e: self.fetch_data())
+        refresh_btn.bind('<Enter>', lambda e: refresh_btn.config(fg=THEME['accent']))
+        refresh_btn.bind('<Leave>', lambda e: refresh_btn.config(fg=THEME['text_secondary']))
 
     def setup_quota_section(self):
         """设置配额区块"""
@@ -389,6 +393,7 @@ class GLMPlanMonitor:
         self.create_quota_row(self.quota_frame, "每5小时:", "#4ecdc4", "hourly")
         self.create_quota_row(self.quota_frame, "每周:", "#45b7d1", "weekly")
         self.create_quota_row(self.quota_frame, "月度MCP:", "#a6e3a1", "monthly_mcp")
+        self.create_quota_row(self.quota_frame, "Token消耗:", "#f38ba8", "tokens")
 
     def create_quota_row(self, parent, label_text, color, key):
         """创建配额行"""
@@ -786,6 +791,8 @@ class GLMPlanMonitor:
                 hourly_data = {}
                 hourly_token_data = {}
                 weekly_data = {}
+                monthly_mcp_data = {}
+                tokens_data = {}
 
                 for limit in limits:
                     limit_type = limit.get("type")
@@ -806,7 +813,14 @@ class GLMPlanMonitor:
                         if unit == 3:
                             hourly_token_data = {
                                 "percentage": limit.get("percentage", 0),
-                                "next_reset": limit.get("nextResetTime", 0)
+                                "next_reset": limit.get("nextResetTime", 0),
+                                "used": limit.get("currentValue", 0),
+                                "total": limit.get("limit", 0)
+                            }
+                            # Token消耗数据
+                            tokens_data = {
+                                "used": limit.get("currentValue", 0),
+                                "total": limit.get("limit", 0)
                             }
                         elif unit == 6:
                             weekly_data = {
@@ -824,6 +838,8 @@ class GLMPlanMonitor:
                     "monthly_mcp_used": monthly_mcp_data.get("used", 0),
                     "monthly_mcp_total": monthly_mcp_data.get("total", 0),
                     "monthly_mcp_reset": monthly_mcp_data.get("next_reset", 0),
+                    "tokens_used": tokens_data.get("used", 0),
+                    "tokens_total": tokens_data.get("total", 0),
                     "usage_details": hourly_data.get("usage_details", []),
                     "time": datetime.now().strftime("%H:%M:%S"),
                     "status": "API已连接",
@@ -840,6 +856,8 @@ class GLMPlanMonitor:
                     "monthly_mcp_used": 0,
                     "monthly_mcp_total": 0,
                     "monthly_mcp_reset": 0,
+                    "tokens_used": 0,
+                    "tokens_total": 0,
                     "usage_details": [],
                     "time": datetime.now().strftime("%H:%M:%S")
                 }
@@ -923,6 +941,21 @@ class GLMPlanMonitor:
             else:
                 self.monthly_mcp_bar['value'] = 0
             self.monthly_mcp_reset.config(text=self.format_reset_time(d.get('monthly_mcp_reset', 0)))
+
+            # Token消耗
+            t_used = d.get('tokens_used', 0)
+            t_total = d.get('tokens_total', 0)
+            t_pct = (t_used / t_total * 100) if t_total > 0 else 0
+            t_color = self.get_usage_color(t_pct)
+            # 格式化显示：大数字用K单位
+            def format_tokens(n):
+                if n >= 1000000:
+                    return f"{n/1000000:.1f}M"
+                elif n >= 1000:
+                    return f"{n/1000:.1f}K"
+                return str(n)
+            self.tokens_label.config(text=f"{format_tokens(t_used)}/{format_tokens(t_total)}", fg=t_color)
+            self.tokens_bar['value'] = t_pct
 
             # 小窗口模式下更新配额显示
             if self.compact_mode:
