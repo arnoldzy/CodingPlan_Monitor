@@ -111,6 +111,8 @@ class CodingPlanMonitor:
         self._tray_nid = None
         self._tray_thread = None
         self._tray_last_menu_ts = 0.0
+        self._chart_win = None
+        self._settings_win = None
         
         # 异步线程池与事件循环
         self.executor = ThreadPoolExecutor(max_workers=3)
@@ -846,11 +848,24 @@ class CodingPlanMonitor:
         """双击显示高清大图，支持 5H/24H 切换"""
         if not HAS_PIL: return
         
+        # 防止重复打开
+        if self._chart_win and self._chart_win.winfo_exists():
+            self._chart_win.lift()
+            self._chart_win.focus_force()
+            return
+
         # 创建大图窗口
         win = tk.Toplevel(self.root)
+        self._chart_win = win
         win.title("GLM Usage Analysis (High Res)")
         win.attributes('-topmost', True)
         win.configure(bg='#000') # 纯黑背景
+        
+        def on_chart_close():
+            self._chart_win = None
+            win.destroy()
+        
+        win.protocol("WM_DELETE_WINDOW", on_chart_close)
         
         current_suffix = tk.StringVar(value="5h")
         
@@ -950,7 +965,7 @@ class CodingPlanMonitor:
         large_lbl.pack(padx=10, pady=10)
 
         # 绑定快捷键
-        win.bind('<Escape>', lambda e: win.destroy())
+        win.bind('<Escape>', lambda e: on_chart_close())
         
         # 初始加载
         update_large_img()
@@ -995,8 +1010,21 @@ class CodingPlanMonitor:
         self.root.bind('<Button-1>', start); self.root.bind('<B1-Motion>', drag)
 
     def show_settings(self):
+        # 防止重复打开
+        if self._settings_win and self._settings_win.winfo_exists():
+            self._settings_win.lift()
+            self._settings_win.focus_force()
+            return
+
         win = tk.Toplevel(self.root); win.title("设置"); win.attributes('-topmost', True)
+        self._settings_win = win
         win.configure(bg=THEME['bg_dark']); win.resizable(False, False)
+        
+        def on_settings_close():
+            self._settings_win = None
+            win.destroy()
+        
+        win.protocol("WM_DELETE_WINDOW", on_settings_close)
         # 居中显示
         self.center_window(win, 400, 560)
         tk.Label(win, text="⚙ 设置", font=("Microsoft YaHei UI", 14, "bold"), fg=THEME['accent'], bg=THEME['bg_dark']).pack(pady=15)
@@ -1012,7 +1040,7 @@ class CodingPlanMonitor:
             for k in ["api_key", "minimax_api_key", "kimi_api_key"]: self.config[k] = self.setting_vars[k].get()
             try: self.config["refresh_interval"] = int(self.setting_vars["refresh_interval"].get())
             except: self.config["refresh_interval"] = 30
-            self._sync_api_keys(); self.save_config(); win.destroy(); self.fetch_data(); self.reschedule_fetch(); messagebox.showinfo("成功", "设置已保存!")
+            self._sync_api_keys(); self.save_config(); self._settings_win = None; win.destroy(); self.fetch_data(); self.reschedule_fetch(); messagebox.showinfo("成功", "设置已保存!")
 
         btn_wrap = tk.Frame(win, bg=THEME['bg_dark'])
         btn_wrap.pack(fill=tk.X, pady=(0, 16))
