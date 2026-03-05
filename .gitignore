@@ -4,12 +4,17 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.venv/
+env/
+venv/
 
 # 敏感配置文件 (包含 API 密钥)
-glm_monitor_config.json
+.env
 
 # 运行时数据
-glm_usage_stats.json
+data/
+monitor.log
+*.lock
 
 # IDE
 .idea/
